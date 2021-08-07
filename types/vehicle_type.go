@@ -26,9 +26,19 @@ func ConvertNameToVtype (vname string) (Vtype, error) {
 	}
 }
 
-
 func (v Vtype) GetInt64Val() int64 {
 	return int64(v)
+}
+
+func (v Vtype) ConvertVtypeToName() (string, error) {
+	switch v {
+	case VtypeCar:
+		return "Car", nil
+	case VtypeMotorcycle:
+		return "Motorcycle", nil
+	default:
+		return "", fmt.Errorf("invalid Vtype: Vtype=[%v]", v)
+	}
 }
 
 type Vehicle interface {

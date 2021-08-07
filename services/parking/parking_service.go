@@ -3,6 +3,7 @@ package parking
 import (
 	"fmt"
 	"personal/valet-parking-lot/types"
+	"sync"
 )
 
 type PLErrorCode int64
@@ -77,7 +78,9 @@ type ServiceRequest struct {
 	Timestamp int64
 	Vid string // vehicle number
 	ParkingLot *map[int64]map[string]ParkVehicle // Parking lot resource mock
-	ParkingCap *map[int64]int64 // Parking lot capacity resource mock
+	Pids *map[int64]map[int64]bool // Pids[Vid][Parkinglot Id], true? filled , false? empty
+	VidToVtype *map[string]types.Vtype
+	Mutex *sync.Mutex
 }
 
 type ServiceResponse struct {
@@ -86,6 +89,10 @@ type ServiceResponse struct {
 
 type ParkVehicle interface {
 	GetRate(timestamp int64) float64
+	GetPid() int64
+	SetPid(pid int64)
+	GetVid() string
+	GetVtype() types.Vtype
 }
 
 // Abstract Factory for ParkVehicle i-type
@@ -140,6 +147,7 @@ func ceilUnixTimeHourDiff (begin int64, end int64) int64 {
 type ParkCar struct {
 	types.Vehicle
 	Timestamp int64
+	Pid int64
 }
 
 // Flat Car park fee without any extra service(including valet) is 1 / hour
@@ -147,12 +155,30 @@ func (p *ParkCar) GetRate(timestamp int64) float64 {
 	return 1 * float64(ceilUnixTimeHourDiff(p.Timestamp, timestamp))
 }
 
+func (p *ParkCar) GetPid() int64 {
+	return p.Pid
+}
+
+func (p *ParkCar) SetPid(pid int64)  {
+	p.Pid = pid
+}
+
 type ParkMotorcycle struct {
 	types.Vehicle
 	Timestamp int64
+	Pid int64
 }
 
 // Flat MC park fee without any extra service(including valet) is 0.5 / hour
 func (p *ParkMotorcycle) GetRate(timestamp int64) float64 {
 	return 1 * float64(ceilUnixTimeHourDiff(p.Timestamp, timestamp))
 }
+
+func (p *ParkMotorcycle) GetPid() int64 {
+	return p.Pid
+}
+
+func (p *ParkMotorcycle) SetPid(pid int64)  {
+	p.Pid = pid
+}
+
