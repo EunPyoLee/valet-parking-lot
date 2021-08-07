@@ -32,14 +32,20 @@ func (p * ParkingServiceImpl) HandleRequest(req servParking.ServiceRequest) (ser
 		if err != nil {
 			// Todo: Error log
 			if resp.ErrCode == servParking.PLErrorServiceUnavailable {
-				notify(req.OpType, parkVehicle, true) // notfiy "Reject"
+				notify(req, parkVehicle, true) // notfiy "Reject"
 			}
 		} else{
-			notify(req.OpType, parkVehicle, false) // notify "Accept"
+			notify(req, parkVehicle, false) // notify "Accept"
 		}
 		return resp, err
 	} else if req.OpType == servParking.OpTypeExit || req.OpType == servParking.OpTypeExitValet {
 		// Exit workflow
+		resp, parkVehicle, err := exitParkingLot(req)
+		if err != nil {
+			// Todo: Error log
+		} else {
+			notify(req, parkVehicle, false) // notfiy "Exit"
+		}
 		return resp, nil
 	} else {
 		resp.ErrCode = servParking.PLErrorInvalidRequest
@@ -49,25 +55,82 @@ func (p * ParkingServiceImpl) HandleRequest(req servParking.ServiceRequest) (ser
 	} // Create ParkVehicle
 }
 
-func notify(opType servParking.OpType, parkVehicle servParking.ParkVehicle, isReject bool){
+func notify(req servParking.ServiceRequest, parkVehicle servParking.ParkVehicle, isReject bool){
 	if isReject { // Reject message
 		fmt.Println("Reject")
 		return
 	}
 	oneIdxPid := parkVehicle.GetPid() + 1
-	if opType == servParking.OpTypeEnter || opType == servParking.OpTypeEnterValet { // Accept  message
-		vname, err := parkVehicle.GetVtype().ConvertVtypeToName()
-		if err != nil {
-			return
-		}
+	vname, err := parkVehicle.GetVtype().ConvertVtypeToName()
+	if err != nil {
+		return
+	}
+	if req.OpType == servParking.OpTypeEnter || req.OpType == servParking.OpTypeEnterValet { // Accept  message
 		msg := fmt.Sprintf(constant.AcceptFormat, vname, oneIdxPid)
 		fmt.Println(msg)
-	} else if opType == servParking.OpTypeExit || opType == servParking.OpTypeExitValet {
+	} else if req.OpType == servParking.OpTypeExit || req.OpType == servParking.OpTypeExitValet { // Exit message
+		msg := fmt.Sprintf(constant.ExitFormat, vname, oneIdxPid, parkVehicle.GetRate(req.Timestamp))
+		fmt.Println(msg)
 		return
 	} else {
+		// Todo: Service Unavailable
 		return
 	}
 }
+
+func isExitRequestValid(req servParking.ServiceRequest) bool {
+	parkingLot, pids, vidToVtype := req.ParkingLot, req.Pids, req.VidToVtype
+	if parkingLot == nil || pids == nil || vidToVtype == nil {
+		return false
+	}
+	if _, exist := (*vidToVtype)[req.Vid]; !exist {
+		// No vehicle with this Vid exists in the parking lot
+		// Todo: Warn log
+		return false
+	} else if v, exist := (*parkingLot)[req.Vtype.GetInt64Val()][req.Vid]; !exist ||
+		v.GetEnterTimeStamp() > req.Timestamp {
+		// Invalid timestamp
+		// Todo: Warn log
+		return false
+	}
+	return true
+}
+
+func exitCar(req servParking.ServiceRequest) (servParking.ParkVehicle, error) {
+	parkingLot, pids, vidToVtype := req.ParkingLot, req.Pids, req.VidToVtype
+	parkVehicle := (*parkingLot)[req.Vtype.GetInt64Val()][req.Vid]
+	// Unpark and reset the used parking lot id as empty again
+	delete((*parkingLot)[req.Vtype.GetInt64Val()], req.Vid)
+	(*pids)[req.Vtype.GetInt64Val()][parkVehicle.GetPid()] = false
+	delete(*vidToVtype, req.Vid)
+	return parkVehicle, nil
+}
+
+func exitParkingLot(req servParking.ServiceRequest) (resp servParking.ServiceResponse,
+	parkVehicle servParking.ParkVehicle, err error){
+	defer req.Mutex.Unlock() // RAII-like pattern for unlock guarantee
+	// The whole workflow is a critical section
+	req.Mutex.Lock()
+	// Check request validness
+	if !isExitRequestValid(req) {
+		resp.ErrCode = servParking.PLErrorInvalidRequest
+		err = fmt.Errorf("[Warn] invalid request: received request=[%+v'", req)
+		// Todo: Warn log
+		return resp, nil, err
+	}
+	// Exit
+	parkVehicle, err = exitCar(req)
+	if err != nil {
+		// Todo: Error log
+		resp.ErrCode = servParking.PLErrorFail
+		err = fmt.Errorf("[Error] request failed: received request=[%+v'", req)
+		return resp, nil, err
+	} else {
+		resp.ErrCode = servParking.PLErrorSuccess
+	}
+	return resp, parkVehicle, err
+}
+
 func isEnterRequestValid(req servParking.ServiceRequest) bool {
 	parkingLot, pids, vidToVtype := req.ParkingLot, req.Pids, req.VidToVtype
 	if parkingLot == nil || pids == nil || vidToVtype == nil {
@@ -97,13 +160,15 @@ func enterParkingLot(req servParking.ServiceRequest, parkVehicle servParking.Par
 	// Check request validness
 	if !isEnterRequestValid(req) {
 		resp.ErrCode = servParking.PLErrorInvalidRequest
-		err = fmt.Errorf("[Warn] invalid Enter request: request=[%+v]", req)
+		// Todo: Warn log
+		err = fmt.Errorf("[Warn] invalid request: received request=[%+v'", req)
 		return resp, err
 	}
 	// Check availability
 	if !isAvailable(req) {
 		resp.ErrCode = servParking.PLErrorServiceUnavailable
-		err = fmt.Errorf("[Warn] Service Unavaialble: request=[%+v]", req)
+		// Todo: Warn log
+		err = fmt.Errorf("[Warn] parking service unavailable: received request=[%+v'", req)
 		return resp, err
 	}
 	// Enter
@@ -143,4 +208,3 @@ func createParkVehicle(req servParking.ServiceRequest) (servParking.ParkVehicle,
 	}
 	return parkVehicleFactory.CreateParkVehicle(req.Vid, req.Vtype, req.Timestamp), nil
 }
-

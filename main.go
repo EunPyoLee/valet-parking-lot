@@ -100,24 +100,25 @@ func main() {
 		var vid string
 		curLine := scanner.Text()
 		ops := strings.Fields(curLine)
+
 		if !isValidRequest(ops) {
 			// Report invalid request and skip
 			// Todo: Warn log
 			continue
 		}
 		opType, err := servParking.GetOpType(ops[0], true) // Current service uses valet always
+
 		if err != nil {
 			// Todo: Warn log
 			continue
 		}
+
 		if opType == servParking.OpTypeEnterValet || opType == servParking.OpTypeEnter {
 			vtype, err = types.ConvertNameToVtype(ops[1])
 			if err != nil {
 				fmt.Printf("[Warn] invalid client reuqest: %s\n", curLine)
 				continue
 			}
-		}
-		if opType == servParking.OpTypeEnterValet || opType == servParking.OpTypeEnter {
 			vid = ops[2]
 			timestamp, err = strconv.ParseInt(ops[3],10,64)
 			if err != nil {
@@ -126,6 +127,12 @@ func main() {
 			}
 		} else if opType == servParking.OpTypeExitValet || opType == servParking.OpTypeExit {
 			vid = ops[1]
+			if vtypeRes, exist := (*vidToVtype)[vid]; !exist{
+				// Todo: Warn log
+				continue
+			} else {
+				vtype = vtypeRes
+			}
 			timestamp, err = strconv.ParseInt(ops[2],10,64)
 			if err != nil {
 				// Todo: Warn log

@@ -93,6 +93,7 @@ type ParkVehicle interface {
 	SetPid(pid int64)
 	GetVid() string
 	GetVtype() types.Vtype
+	GetEnterTimeStamp() int64
 }
 
 // Abstract Factory for ParkVehicle i-type
@@ -159,8 +160,12 @@ func (p *ParkCar) GetPid() int64 {
 	return p.Pid
 }
 
-func (p *ParkCar) SetPid(pid int64)  {
+func (p *ParkCar) SetPid(pid int64) {
 	p.Pid = pid
+}
+
+func (p *ParkCar) GetEnterTimeStamp() int64 {
+	return p.Timestamp
 }
 
 type ParkMotorcycle struct {
@@ -171,7 +176,7 @@ type ParkMotorcycle struct {
 
 // Flat MC park fee without any extra service(including valet) is 0.5 / hour
 func (p *ParkMotorcycle) GetRate(timestamp int64) float64 {
-	return 1 * float64(ceilUnixTimeHourDiff(p.Timestamp, timestamp))
+	return 0.5 * float64(ceilUnixTimeHourDiff(p.Timestamp, timestamp))
 }
 
 func (p *ParkMotorcycle) GetPid() int64 {
@@ -182,3 +187,6 @@ func (p *ParkMotorcycle) SetPid(pid int64)  {
 	p.Pid = pid
 }
 
+func (p *ParkMotorcycle) GetEnterTimeStamp() int64 {
+	return p.Timestamp
+}
