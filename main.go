@@ -4,8 +4,9 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"personal/parking/constant"
-	"personal/parking/types"
+	"personal/valet-parking-lot/constant"
+	"personal/valet-parking-lot/impls"
+	servParking "personal/valet-parking-lot/services/parking"
 	"strconv"
 	"strings"
 
@@ -17,11 +18,11 @@ type programArgs struct {
 }
 
 // Return parking lot and capacity storing data structures
-func buildParkingLot(strSlotNums []string) (map[int64]map[string]types.ParkVehicle, map[int64]int64, error) {
-	parkingLot := make(map[int64]map[string]types.ParkVehicle)
+func buildParkingLot(strSlotNums []string) (map[int64]map[string]servParking.ParkVehicle, map[int64]int64, error) {
+	parkingLot := make(map[int64]map[string]servParking.ParkVehicle)
 	capMap := make(map[int64]int64)
 	for i, v := range strSlotNums {
-		parkingLot[int64(i)] = make(map[string]types.ParkVehicle)
+		parkingLot[int64(i)] = make(map[string]servParking.ParkVehicle)
 		slotNum, err := strconv.ParseInt(v, 10, 64)
 		if err != nil {
 			return parkingLot, capMap, err
@@ -62,8 +63,10 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println(parkingLot, capMap)
+	// Choose concrete behavior for this Parking Lot service
+	parkingLotImpl := impls.ParkingLotImpl{}
 	for scanner.Scan() {
+		parkingLotImpl.HandleRequest()
 		fmt.Println(scanner.Text())
 	}
 	file.Close()
