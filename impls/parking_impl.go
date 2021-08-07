@@ -4,10 +4,12 @@ import (
 	servParking "personal/valet-parking-lot/services/parking"
 )
 
-type ParkingLotImpl struct {
+type ParkingServiceImpl struct {
 }
 
 // Concrete Implementation of ParkingLotService's HandleRequest Behavior
 // Handle entry and Exit operation type
-func (p * ParkingLotImpl) HandleRequest(req servParking.ParkinglotServiceRequest) (servParking.ParkinglotServiceResponse, error) {
+func (p * ParkingServiceImpl) HandleRequest(req servParking.ServiceRequest) (servParking.ServiceResponse, error) {
+	resp := servParking.ServiceResponse{}
+	return resp, nil
 }

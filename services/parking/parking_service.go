@@ -2,7 +2,7 @@ package parking
 
 import (
 	"fmt"
-	"time"
+	"personal/valet-parking-lot/types"
 )
 
 type PLErrorCode int64
@@ -14,6 +14,7 @@ const (
 	PLErrorServiceUnavailable PLErrorCode = 3
 	PLErrorUnknown PLErrorCode = 4
 )
+
 func (e PLErrorCode) Error() string {
 	switch e {
 	case PLErrorSuccess:
@@ -34,6 +35,14 @@ func (e PLErrorCode) GetInt64Val() int64 {
 }
 
 type OpType int64
+
+const (
+	OpTypeEnter OpType = 0
+	OpTypeExit OpType = 1
+	OpTypeEnterValet OpType = 2
+	OpTypeExitValet OpType = 3
+
+)
 
 func GetOpType (opTypeStr string, isValet bool) (OpType, error) {
 	switch opTypeStr {
@@ -58,39 +67,92 @@ func (o OpType) GetInt64Val() int64 {
 	return int64(o)
 }
 
-type Vtype int64
-
-func GetVtype (vtype int64) (Vtype, error) {
-	if vtype < 0 || vtype > 1 {
-		return Vtype(-1),fmt.Errorf("invalid Vtype: received [%d]", vtype)
-	}
-	return Vtype(vtype), nil
+type Service interface {
+	HandleRequest(req ServiceRequest) (ServiceResponse, error)
 }
 
-func (v Vtype) GetInt64Val() int64 {
-	return int64(v)
-}
-
-type ParkingLotService interface {
-	HandleRequest(req ParkinglotServiceRequest) (ParkinglotServiceResponse, error)
-}
-
-type ParkinglotServiceRequest struct {
+type ServiceRequest struct {
 	OpType OpType // 0 - Enter , 1 - Exit, 2 - ValetEnter, 3 - ValetExit
-	Vtype Vtype // 0 - Car, 1- Motorcycle
-	Timestamp time.Time
+	Vtype types.Vtype // 0 - Car, 1- Motorcycle
+	Timestamp int64
 	Vid string // vehicle number
+	ParkingLot *map[int64]map[string]ParkVehicle // Parking lot resource mock
+	ParkingCap *map[int64]int64 // Parking lot capacity resource mock
 }
 
-type ParkinglotServiceResponse struct {
+type ServiceResponse struct {
 	errCode PLErrorCode
 }
 
 type ParkVehicle interface {
-	GetRate() float64
+	GetRate(timestamp int64) float64
 }
 
-type Vehicle interface {
-	GetVid() string
-	GetVtype() Vtype
+// Abstract Factory for ParkVehicle i-type
+func GetParkVehicleFactory(vtype types.Vtype) (ParkVehicleFactory, error) {
+	switch vtype {
+	case types.VtypeCar:
+		return ParkCarFactory{}, nil
+	case types.VtypeMotorcycle:
+		return ParkMotorcycleFactory{}, nil
+	default:
+		return nil, fmt.Errorf("invalid Vtype: received [%v]", vtype)
+	}
+}
+
+type ParkVehicleFactory interface {
+	CreateParkVehicle(vid string, vtype types.Vtype, timestamp int64) ParkVehicle
+}
+
+type ParkCarFactory struct {}
+
+func (p ParkCarFactory) CreateParkVehicle(vid string, vtype types.Vtype, timestamp int64) ParkVehicle {
+	return &ParkCar{
+		Vehicle: &types.Car{
+			Vid: vid,
+			Vtype: vtype,
+		},
+		Timestamp: timestamp,
+	}
+}
+
+type ParkMotorcycleFactory struct {}
+
+func (p ParkMotorcycleFactory) CreateParkVehicle(vid string, vtype types.Vtype, timestamp int64) ParkVehicle {
+	return &ParkMotorcycle{
+		Vehicle: &types.MotorCycle{
+			Vid: vid,
+			Vtype: vtype,
+		},
+		Timestamp: timestamp,
+	}
+}
+
+func ceilUnixTimeHourDiff (begin int64, end int64) int64 {
+	diff := end - begin
+	hourCeil := diff / 3600
+	if diff % 3600 != 0 {
+		hourCeil++
+	}
+	return hourCeil
+}
+
+type ParkCar struct {
+	types.Vehicle
+	Timestamp int64
+}
+
+// Flat Car park fee without any extra service(including valet) is 1 / hour
+func (p *ParkCar) GetRate(timestamp int64) float64 {
+	return 1 * float64(ceilUnixTimeHourDiff(p.Timestamp, timestamp))
+}
+
+type ParkMotorcycle struct {
+	types.Vehicle
+	Timestamp int64
+}
+
+// Flat MC park fee without any extra service(including valet) is 0.5 / hour
+func (p *ParkMotorcycle) GetRate(timestamp int64) float64 {
+	return 1 * float64(ceilUnixTimeHourDiff(p.Timestamp, timestamp))
 }
