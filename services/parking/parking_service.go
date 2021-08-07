@@ -81,7 +81,7 @@ type ServiceRequest struct {
 }
 
 type ServiceResponse struct {
-	errCode PLErrorCode
+	ErrCode PLErrorCode
 }
 
 type ParkVehicle interface {

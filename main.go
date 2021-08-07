@@ -133,8 +133,10 @@ func main() {
 			ParkingLot: &parkingLot,
 			ParkingCap: &parkingCap,
 		}
-		fmt.Printf("%+v\n",parkServiceReq)
-		parkService.HandleRequest(parkServiceReq)
+		resp, err := parkService.HandleRequest(parkServiceReq)\
+		if err != nil {
+			fmt.Printf("Error: park service HandleRequest failed: resp=[%+v], err=[%v]", resp, err)
+		}
 	}
 	file.Close()
 }
