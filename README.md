@@ -28,7 +28,7 @@ in valet-parkinglot
 $go build valetparking.go #creates compiled executable file valetparking
 
 #run program
-$./valetparking <your_txt_input_file> 
+$./valetparking <your_txt_input_file> # e.g) ./valetparking input1.txt
 ```
 * Place your input file in `valet-parking-lot/inputs` directory
 
