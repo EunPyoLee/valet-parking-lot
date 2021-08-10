@@ -24,7 +24,7 @@
 
 # Build
 ```
-in valet-parkinglot
+in valet-parking-lot/
 $go build valetparking.go #creates compiled executable file valetparking
 
 #run program
